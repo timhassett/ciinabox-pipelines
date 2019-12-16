@@ -206,12 +206,18 @@ def queryStackStatus(cf, config){
     if(config.waitUntilComplete != true) {
       return currentState
     }
-    successStatus = config.containsKey('query') ? StackStatus.valueOf(config.query.toString()) : StackStatus.UPDATE_COMPLETE
     
-    success = wait(cf, config.stackName, successStatus)
-    if(!success) {
-      printFailedStackEvents(cf, config.stackName, config.region)
-      throw new Exception("Stack ${config.stackName} failed to reach state ${config.query}")
+    statePrefix = currentState.tokenize("_")[0]
+    
+    if (statePrefix in ["CREATE", "DELETE", "UPDATE"]) {
+      successStatus = StackStatus.valueOf(statePrefix + "_COMPLETE")
+      success = wait(cf, config.stackName, successStatus)
+      if(!success) {
+        printFailedStackEvents(cf, config.stackName, config.region)
+        throw new Exception("Stack ${config.stackName} failed to reach state ${successStatus}")
+      }
+    } else {
+      throw new Exception("Stack ${config.stackName} with status ${currentState} cannot be waited for")
     }
   } catch (AmazonCloudFormationException ex) {
     throw new GroovyRuntimeException("Couldn't describe stack ${config.stackName}", ex)
